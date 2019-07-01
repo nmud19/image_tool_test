@@ -14,18 +14,65 @@ from PIL import Image, ImageDraw
 import urllib
 import traceback
 import dash_reusable_components as drc
-
-# Normally, Dash creates its own Flask server internally. By creating our own,
-# we can create a route for downloading files directly:
+import os
+import flask
 server = Flask(__name__)
+
 app = dash.Dash(server=server)
+app.config['suppress_callback_exceptions']=True
+app.css.config.serve_locally = True
+# app.script.config.serve_locally = True
+# app.css.append_css({'external_url': 'bWLwgP.css'})
+# # Loading screen CSS
+# app.css.append_css({"external_url": "brPBPO.css"})
 
-# app = dash.Dash()
-# app.css.append_css({'external_url': 'https://codepen.io/chriddyp/pen/dZVMbK.css'})
 
-app.css.append_css({'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'})
-# Loading screen CSS
-# app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/brPBPO.css"})
+
+
+stylesheets = ['bWLwgP.css', 'brPBPO.css']
+static_css_route = '/'
+css_directory = os.getcwd()
+
+@app.server.route('{}<stylesheet>'.format(static_css_route))
+def serve_stylesheet(stylesheet):
+    if stylesheet not in stylesheets:
+        raise Exception(
+            '"{}" is excluded from the allowed static files'.format(
+                stylesheet
+            )
+        )
+    return flask.send_from_directory(css_directory, stylesheet)
+
+
+for stylesheet in stylesheets:
+    app.css.append_css({"external_url": "/static/{}".format(stylesheet)})
+
+
+def generate_thumbnail(image_filename):
+    print(image_filename)
+    encoded_image = base64.b64encode(open(image_filename, 'rb').read())
+    encoded_image = encoded_image.decode()
+    return html.Div([
+        html.Img(
+            id= image_filename.replace(".", "--"),
+            title=image_filename,
+            src='data:image/png;base64,{}'.format(encoded_image),
+            style = {
+                'height': '10%',
+                'width': '10%',
+                'float': 'left',
+                'position': 'relative',
+                'padding-top': 10,
+                'padding-right': 10
+            })
+    ])
+
+
+# @server.route('/t2/<path:filename>')
+# def index(filename):
+#     return 'Hello Flask app, is this your file? {}'.format(filename)
+
+
 
 RANGE = [0, 1]
 data = "" # Sample data string to initialize
@@ -54,7 +101,13 @@ IMAGE_NUM = 0
 CURRENT_IMAGE_PATH = "{}/{}.jpg".format(IMAGES_FOLDER, IMAGE_NUM)
 IS_MASK_IMAGE = False
 TEMP_FILE = "tmp.jpg"
+IMAGE_CLICKED_FLAG = 0
 
+#
+images_list = ['test/{}.jpg'.format(x) for x in range(10)]
+img_div = []
+for i in images_list:
+    img_div.append(generate_thumbnail(i))
 
 def check_entries() :
     """
@@ -101,6 +154,7 @@ def InteractiveImage(image_path):
     global IS_MASK_IMAGE, TEMP_FILE
     # print("Status of ismask ---> {}".format(IS_MASK_IMAGE))
     flag, datasource = check_entries()
+
     print(flag, datasource, datasource.columns)
     if flag:
         encoded_image = base64.b64encode(open(TEMP_FILE, 'rb').read())
@@ -124,8 +178,8 @@ def InteractiveImage(image_path):
                     'scaleanchor': 'x',
                     'scaleratio': 1
                 },
-                'height': 600,
-                'width' : 500,
+                'height': 550,
+                'width' : 450,
                 'images': [{
                     'xref': 'x',
                     'yref': 'y',
@@ -145,7 +199,18 @@ def InteractiveImage(image_path):
                 id='table',
                 columns=[{"name": i, "id": i} for i in datasource],
                 data=datasource.to_dict('records'),
-                row_deletable=True
+                row_deletable=True,
+                style_table={'overflowX': 'scroll'},
+                style_cell={
+                    'minWidth': '0px', 'maxWidth': '60px',
+                    'whiteSpace': 'no-wrap',
+                    'overflow': 'hidden',
+                    'textOverflow': 'ellipsis',
+                },
+                css=[{
+                    'selector': '.dash-cell div.dash-cell-value',
+                    'rule': 'display: inline; white-space: inherit; overflow: inherit; text-overflow: inherit;'
+                }],
             )
     return html.Div([
         graph_layout, table_layout,
@@ -153,222 +218,34 @@ def InteractiveImage(image_path):
     ])
 
 
-app.layout = html.Div([
-    html.Div(
-        [html.H1("Image Label Tool")],
-        style={'textAlign': 'center'}
-    ),
-
-    # Interactive image part
-    html.Div(className='row', children=[
-        html.Div(id = 'img' , children=InteractiveImage('test/0.jpg'),
-                 className='six columns'),
-        html.Div([
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-
-        ]),
-        html.Div([
-            html.Button('<-', id='prev-page', n_clicks_timestamp=0),
-            html.Button('->', id='next-page', n_clicks_timestamp=0),
-            html.A(
-                    'Download Data',
-                    id='download-link',
-                    download="test.csv",
-                    href="",
-                    target="_blank"
-                )
-
-        ], className='two columns', style={"border":"2px black solid"}),
-        html.Div([
-            html.Br(),
-            html.Br(),
-            html.Br(),
-            html.Br(),
-
-        ]),
-        # Does a table exist ?
-        html.Div(
-            [
-                html.Div(
-                    html.H3("Is there a table on this page?")
-                ),  # Text for asking question
-                html.Div(
-                    dcc.RadioItems(
-                        id = "is-table-present",
-                        options=[
-                            {'label': 'Yes', 'value': 'Y'},
-                            {'label': 'No', 'value': 'N'},
-                        ],
-                        value='N',
-                        labelStyle={'display': 'inline-block'}
-                    )
-                ),  # The radio button
-                html.Div(
-                    html.Button("Save table presence input!", id = "button-table-presence")
-                ),  # button to save the input
-            ], className='three columns', style={"border":"2px black solid"}
-        ),
-        html.Div([
-                    html.Br(),
-                    html.Br(),
-                    html.Br(),
-                    html.Br(),
-
-                ]),
-        html.Div(id='dummy-for-istablepresent-save'),
-        #
-        html.Div([
-                    html.Br(),
-                    html.Br(),
-                    html.Br(),
-                    html.Br(),
-
-                ]),
-        html.Div([
-            html.Div([
-                        html.Button('Save this snapshot', id='btn-1', n_clicks_timestamp=0),
-                        html.Div(id='container-button-timestamp')
-            ], className='six columns'),
-            html.Div([
-                        html.Br(),
-                        html.Br(),
-                        html.Br(),
-                        html.Br(),
-
-                    ]),
 
 
-            html.Pre(id='console')],
-            className = 'six columns', style={"border":"2px black solid"})
-            # html.Div(dcc.Graph(id='graph'), className='six columns'))
-    ]),
-
-], style={'columnCount': 2}
-)
 
 
-def new_layout():
-    return html.Div([
+@app.callback(Output('selected-image', 'children'),
+              [
+                  Input(id.replace(".", "--"), 'n_clicks_timestamp') for id in images_list
+              ])
+def tt(*args) :
+    args = [-1 if x is None else x for x in args]
+    # global IMAGE_CLICKED_FLAG
 
-        # Banner display
-        html.Div([
-            html.H2(
-                'Image Label Tool',
-                id='title',
-            ),
-            # html.Img(
-            #     src="https://s3-us-west-1.amazonaws.com/plotly-tutorials/logo/new-branding/dash-logo-by-plotly-stripe-inverted.png"
-            # )
-
-        ],
-            className="banner", style={'textAlign': 'center'}
-        ),
-
-        # Body
-        html.Div(className="container", children=[
-            html.Div(className='row', children=[
-
-                html.Div(
-                    # className='three columns',
-                         children=[
-                    html.Div(
-                        [
-                            drc.Card([
-                                # Next and previous buttons
-                                html.Div([
-                                    html.Button('<--', id='prev-page', n_clicks_timestamp=0),
-                                    html.Button('-->', id='next-page', n_clicks_timestamp=0),
-                                    html.A(
-                                        'Download Data',
-                                        id='download-link',
-                                        download="test.csv",
-                                        href="",
-                                        target="_blank"
-                                    )
-
-                                ],
-                                    # className='two columns', style={"border": "2px black solid"}
-                                )
-
-                                # Is there a table on the page
-                                ,
-                                html.Div(
-                                    [
-                                        html.Div(
-                                            html.H3("Is there a table on this page?")
-                                        ),  # Text for asking question
-                                        html.Div(
-                                            dcc.RadioItems(
-                                                id="is-table-present",
-                                                options=[
-                                                    {'label': 'Yes', 'value': 'Y'},
-                                                    {'label': 'No', 'value': 'N'},
-                                                ],
-                                                value='N',
-                                                # labelStyle={'display': 'inline-block'}
-                                            )
-                                        ),  # The radio button
-                                        html.Div(
-                                            html.Button("Save table presence input!", id="button-table-presence")
-                                        ),  # button to save the input
-                                    ],
-                                    # className='three columns', style={"border": "2px black solid"}
-                                ),
-                            ]),
-
-                            drc.Card([
-                                html.Div(id='dummy-for-istablepresent-save'),
-                                #
-                                html.Div([
-                                    html.Div([
-                                        html.Button('Save this snapshot', id='btn-1', n_clicks_timestamp=0),
-                                        html.Div(id='container-button-timestamp')
-                                    ],
-                                        # className='six columns'
-                                    ),
-                                    html.Div([
-                                        html.Br(),
-                                        html.Br(),
-                                        html.Br(),
-                                        html.Br(),
-
-                                    ]),
-
-                                    html.Pre(id='console'),
-                                ]),
-
-                            ]),
-                        ], style={
-                    'width': '30%', 'display': 'inline-block'
-                            # 'width': '300%'
-                }
-                    ),
-                             html.Div(
-                                 # className='three columns',
-                                 style={'width': '49%', 'display': 'inline-block'
-                                        # 'width' : '600%'
-                                        },
-                                 children=[
-                                     html.Div(id='img', children=InteractiveImage('test/0.jpg'),
-                                              # className='six columns'
-                                              )
-                                 ]),
-
-                    ]
-                )
-            ])
-        ])
-    ])
+    most_recent = max(args)
+    if most_recent == -1 :
+        return html.H1("No image has been selected yet")
+    else:
+        global IMAGE_CLICKED_FLAG
+        IMAGE_CLICKED_FLAG = 1
+        i = args.index(most_recent)
+        global CURRENT_IMAGE_PATH
+        CURRENT_IMAGE_PATH = images_list[i]
+        print("Reset the image filename = " , CURRENT_IMAGE_PATH)
+        layout =new_layout()
+        IMAGE_CLICKED_FLAG=0
+        return layout
 
 
-app.layout = new_layout()
+
 
 def append_to_file(filename, data) :
     """
@@ -389,7 +266,7 @@ def append_to_file(filename, data) :
 # Pres any button and the image should be refreshed along with the table
 @app.callback(Output('img', 'children'),
               [
-                  Input('next-page', 'n_clicks_timestamp'), Input('prev-page', 'n_clicks_timestamp'),
+                  # Input('next-page', 'n_clicks_timestamp'), Input('prev-page', 'n_clicks_timestamp'),
                   Input('button-table-presence', 'n_clicks_timestamp'),  # for the save table presence button.
                   Input('btn-1', 'n_clicks_timestamp'), # for the save coordinates button
                   Input('table', 'data_previous'), #  if there is table input
@@ -398,7 +275,9 @@ def append_to_file(filename, data) :
                      State('table', 'data')
                      ]
               )
-def button_click_update_image(next, prev, table_button, coordinates_button, co_inpt_table_data,
+def button_click_update_image(
+        # next, prev,
+                              table_button, coordinates_button, co_inpt_table_data,
                               radio_button_value, co_inpt_table_state):
     """
     Logic to save the bounding box from here
@@ -412,55 +291,57 @@ def button_click_update_image(next, prev, table_button, coordinates_button, co_i
     print("---------The changed state--")
     print(co_inpt_table_state)
     print("-----------------------------")
-    try :
-        if co_inpt_table_data is not None:
-            # Remove the row from the csv and save it
-            rows_to_remove = [row for row in co_inpt_table_data if row not in co_inpt_table_state]
-            print("These are the rows to remove ")
-            mm = pd.DataFrame(rows_to_remove)
-            m2 = list(mm['ts'])
-            global RESULTS_FILE_NAME
-            df = pd.read_csv(RESULTS_FILE_NAME)
-            print(df)
 
-            print("------>", m2)
-            df = df[ ~df.ts.isin(m2)]
-            print(df)
+    if co_inpt_table_data is not None:
+        # Remove the row from the csv and save it
+        rows_to_remove = [row for row in co_inpt_table_data if row not in co_inpt_table_state]
+        print("These are the rows to remove ")
+        mm = pd.DataFrame(rows_to_remove)
+        m2 = list(mm['ts'])
+        global RESULTS_FILE_NAME
+        df = pd.read_csv(RESULTS_FILE_NAME)
+        print(df)
 
-            df.to_csv(RESULTS_FILE_NAME, index= False)
+        print("------>", m2)
+        df = df[ ~df.ts.isin(m2)]
+        df = df.sort_values(by=['ts'], ascending=False)
+        print(df)
 
+        df.to_csv(RESULTS_FILE_NAME, index= False)
+
+    else:
+        dash.exceptions.PreventUpdate()
+        # Find the largest timestamp/most recent clicked button
+        arr = [
+            # next, prev,
+            table_button, coordinates_button]
+        arr = [0 if x is None else float(x) for x in arr]
+        if max(arr) == 0 :
+            print("No button pressed yet")
         else:
-            dash.exceptions.PreventUpdate()
-            # Find the largest timestamp/most recent clicked button
-            arr = [next, prev, table_button, coordinates_button]
-            arr = [0 if x is None else float(x) for x in arr]
-            if max(arr) == 0 :
-                raise Exception("No button pressed yet")
-
-
             largest_ts = max(arr)
 
             # If else logic to check which was clicked the most recent
-            if largest_ts ==  arr[0] :
-                print(arr, "<---------")
-                # next button was clicked
-                print("nextr button clicked", IMAGE_NUM)
-                if IMAGE_NUM >= 10 :
-                    IMAGE_NUM = 10
-                else:
-                    IMAGE_NUM += 1
-            elif largest_ts == arr[1] :
-                # prev button was clicked
-                print("Prev clicked--", IMAGE_NUM)
-                if IMAGE_NUM <= 0:
-                    IMAGE_NUM = 0
-                else:
-                    IMAGE_NUM -= 1
-            elif largest_ts == arr[2] :
+            # if largest_ts ==  arr[0] :
+            #     print(arr, "<---------")
+            #     # next button was clicked
+            #     print("nextr button clicked", IMAGE_NUM)
+            #     if IMAGE_NUM >= 10 :
+            #         IMAGE_NUM = 10
+            #     else:
+            #         IMAGE_NUM += 1
+            # elif largest_ts == arr[1] :
+            #     # prev button was clicked
+            #     print("Prev clicked--", IMAGE_NUM)
+            #     if IMAGE_NUM <= 0:
+            #         IMAGE_NUM = 0
+            #     else:
+            #         IMAGE_NUM -= 1
+            if largest_ts == arr[0] :
                 print("Save table presence button clicked")
                 ff = ['{}'.format(CURRENT_IMAGE_PATH), ds.now().timestamp(), radio_button_value]
                 append_to_file(TABLE_PRESENCE_FILE_NAME, ff)
-            elif largest_ts == arr[3] :
+            elif largest_ts == arr[1] :
                 print("Save coordinates button clicked")
                 # The try catch block was to just identify the start boot error
                 try:
@@ -474,18 +355,16 @@ def button_click_update_image(next, prev, table_button, coordinates_button, co_i
                     append_to_file(RESULTS_FILE_NAME, ff)
                 except:
                     pass
-            # elif co_inpt_table_data is not None :
-            #     # Remove the row from the csv and save it
-            #     rows_to_remove = [ {row} for row in co_inpt_table_data if row not in co_inpt_table_state]
-            #     print("These are the rows to remove ")
-            #     print(rows_to_remove)
             else :
                 pass
-    except Exception as e :
-        print("Found exception - {}".format(e))
-        print("------------")
-        print(traceback.print_exc())
-    CURRENT_IMAGE_PATH = "{}/{}.jpg".format(IMAGES_FOLDER, IMAGE_NUM)
+    global IMAGE_CLICKED_FLAG
+    if IMAGE_CLICKED_FLAG == 0 :
+        pass
+    else:
+        CURRENT_IMAGE_PATH = "{}/{}.jpg".format(IMAGES_FOLDER, IMAGE_NUM)
+
+    print("After the logic this is the filename = {}//{}".format(CURRENT_IMAGE_PATH, IMAGE_CLICKED_FLAG))
+
     # Read the new image here
     return InteractiveImage(CURRENT_IMAGE_PATH)
 
@@ -507,7 +386,141 @@ def downloaddata(download):
     csv_string = "data:text/csv;charset=utf-8,%EF%BB%BF" + urllib.parse.quote(csv_string)
     return csv_string
 
+def new_layout():
+    return html.Div([
+
+        # Banner display
+        # html.Div([
+        #     html.H2(
+        #         'More details',
+        #         id='title',
+        #     ),
+        #     # html.Img(
+        #     #     src="https://s3-us-west-1.amazonaws.com/plotly-tutorials/logo/new-branding/dash-logo-by-plotly-stripe-inverted.png"
+        #     # )
+        #
+        # ],
+        #     className="banner", style={'textAlign': 'center'}
+        # ),
+
+        # Body
+        html.Div(className="container", children=[
+            html.Div(className='row', children=[
+
+                html.Div(
+                    # className='three columns',
+                         children=[
+                    html.Div(
+                        [
+                            drc.Card([
+                                # Next and previous buttons
+                                html.Div([
+                                    # html.Button('<--', id='prev-page', n_clicks_timestamp=0),
+                                    # html.Button('-->', id='next-page', n_clicks_timestamp=0),
+                                    html.A(
+                                        'Download Data',
+                                        id='download-link',
+                                        download="test.csv",
+                                        href="",
+                                        target="_blank"
+                                    )
+
+                                ],
+                                    # className='two columns', style={"border": "2px black solid"}
+                                )
+
+                                # Is there a table on the page
+                                ,
+                                html.Div(
+                                    [
+                                        html.Div(
+                                            html.H6("Is there a table on this page?")
+                                        ),  # Text for asking question
+                                        html.Div(
+                                            dcc.RadioItems(
+                                                id="is-table-present",
+                                                options=[
+                                                    {'label': 'Yes', 'value': 'Y'},
+                                                    {'label': 'No', 'value': 'N'},
+                                                ],
+                                                value='N',
+                                                # labelStyle={'display': 'inline-block'}
+                                            )
+                                        ),  # The radio button
+                                        html.Div(
+                                            html.Button("Save table presence input!",
+                                                        id="button-table-presence",
+                                                        # style=dict(
+                                                        #     width='50%',
+                                                        #     display='table-cell',)
+                                                        )
+                                        ),  # button to save the input
+                                    ],
+                                    # className='three columns', style={"border": "2px black solid"}
+                                ),
+                            ]),
+
+                            drc.Card([
+                                html.Div(id='dummy-for-istablepresent-save'),
+                                #
+                                html.Div([
+                                    html.Div([
+                                        html.Button('Save this snapshot', id='btn-1', n_clicks_timestamp=0
+                                                    # style=dict(
+                                                    #     width='50%',
+                                                    #     display='table-cell', )
+                                                    ),
+                                        html.Div(id='container-button-timestamp')
+                                    ],
+                                        # className='six columns'
+                                    ),
+                                    html.Div([
+                                        html.Br(),
+                                        html.Br(),
+                                        html.Br(),
+                                        html.Br(),
+
+                                    ]),
+
+                                    html.Pre(id='console'),
+                                ]),
+
+                            ]),
+                        ], style={
+                    'width': '50%', 'display': 'inline-block'
+                            # 'width': '300%'
+                }
+                    ),
+                             html.Div(
+                                 # className='three columns',
+                                 style={'width': '50%', 'display': 'inline-block'
+                                        # 'width' : '600%'
+                                        },
+                                 children=[
+                                     html.Div(id='img', children=InteractiveImage('test/0.jpg'),
+                                              # className='six columns'
+                                              )
+                                 ]),
+
+                    ]
+                )
+            ])
+        ])
+    ], style={'display': 'inline-block'} )
 
 
+
+app.layout = html.Div([
+    html.Div(
+        [html.H1("Image Label Tool ".format(CURRENT_IMAGE_PATH))],
+        style={'textAlign': 'center'}
+    ),
+    drc.Card([html.Div(children=img_div, style={'overflowY': 'scroll', 'height': 100, 'border': '3px', 'display': 'inline-block'})]),
+    html.Div(id="selected-image"),
+    # html.Div(id="analysis-chart" , children=[new_layout()])
+], style={'width': '100%', 'display': 'inline-block'})
+
+
+#
 if __name__ == '__main__':
     app.run_server(debug=True)
