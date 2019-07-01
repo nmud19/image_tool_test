@@ -22,31 +22,31 @@ app = dash.Dash(server=server)
 app.config['suppress_callback_exceptions']=True
 app.css.config.serve_locally = True
 # app.script.config.serve_locally = True
-# app.css.append_css({'external_url': 'bWLwgP.css'})
-# # Loading screen CSS
-# app.css.append_css({"external_url": "brPBPO.css"})
+app.css.append_css({'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'})
+# Loading screen CSS
+app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/brPBPO.css"})
 
 
 
 
-stylesheets = ['bWLwgP.css', 'brPBPO.css']
-static_css_route = '/'
-css_directory = os.getcwd()
-
-@app.server.route('{}<stylesheet>'.format(static_css_route))
-def serve_stylesheet(stylesheet):
-    if stylesheet not in stylesheets:
-        raise Exception(
-            '"{}" is excluded from the allowed static files'.format(
-                stylesheet
-            )
-        )
-    return flask.send_from_directory(css_directory, stylesheet)
-
-
-for stylesheet in stylesheets:
-    app.css.append_css({"external_url": "/static/{}".format(stylesheet)})
-
+# stylesheets = ['bWLwgP.css', 'brPBPO.css']
+# static_css_route = '/'
+# css_directory = os.getcwd()
+#
+# @app.server.route('{}<stylesheet>'.format(static_css_route))
+# def serve_stylesheet(stylesheet):
+#     if stylesheet not in stylesheets:
+#         raise Exception(
+#             '"{}" is excluded from the allowed static files'.format(
+#                 stylesheet
+#             )
+#         )
+#     return flask.send_from_directory(css_directory, stylesheet)
+#
+#
+# for stylesheet in stylesheets:
+#     app.css.append_css({"external_url": "/static/{}".format(stylesheet)})
+#
 
 def generate_thumbnail(image_filename):
     print(image_filename)
