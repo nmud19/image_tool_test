@@ -52,6 +52,8 @@ def generate_thumbnail(image_filename):
     print(image_filename)
     encoded_image = base64.b64encode(open(image_filename, 'rb').read())
     encoded_image = encoded_image.decode()
+    import random
+    colour_list = ['red', 'green', 'blue', 'orange', 'black', 'yellow']
     return html.Div([
         html.Img(
             id= image_filename.replace(".", "--"),
@@ -63,7 +65,8 @@ def generate_thumbnail(image_filename):
                 'float': 'left',
                 'position': 'relative',
                 'padding-top': 10,
-                'padding-right': 10
+                'padding-right': 10,
+                'backgroundColor' : "{}".format(random.sample(colour_list, 1)[0])
             })
     ])
 
@@ -234,14 +237,14 @@ def tt(*args) :
     if most_recent == -1 :
         return html.H1("No image has been selected yet")
     else:
-        global IMAGE_CLICKED_FLAG
-        IMAGE_CLICKED_FLAG = 1
+        # Set to the most recent file
         i = args.index(most_recent)
         global CURRENT_IMAGE_PATH
         CURRENT_IMAGE_PATH = images_list[i]
-        print("Reset the image filename = " , CURRENT_IMAGE_PATH)
-        layout =new_layout()
-        IMAGE_CLICKED_FLAG=0
+        # Create the new layout
+        layout = new_layout()
+        # Add a background to the current clicked image
+
         return layout
 
 
@@ -357,13 +360,13 @@ def button_click_update_image(
                     pass
             else :
                 pass
-    global IMAGE_CLICKED_FLAG
-    if IMAGE_CLICKED_FLAG == 0 :
-        pass
-    else:
-        CURRENT_IMAGE_PATH = "{}/{}.jpg".format(IMAGES_FOLDER, IMAGE_NUM)
+    # global IMAGE_CLICKED_FLAG
+    # if IMAGE_CLICKED_FLAG == 0 :
+    #     pass
+    # else:
+    #     CURRENT_IMAGE_PATH = "{}/{}.jpg".format(IMAGES_FOLDER, IMAGE_NUM)
 
-    print("After the logic this is the filename = {}//{}".format(CURRENT_IMAGE_PATH, IMAGE_CLICKED_FLAG))
+    # print("After the logic this is the filename = {}//{}".format(CURRENT_IMAGE_PATH, IMAGE_CLICKED_FLAG))
 
     # Read the new image here
     return InteractiveImage(CURRENT_IMAGE_PATH)
