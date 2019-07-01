@@ -18,7 +18,7 @@ import os
 import flask
 server = Flask(__name__)
 
-app = dash.Dash(server=server)
+app = dash.Dash(__name__, server=server)
 app.config['suppress_callback_exceptions']=True
 app.css.config.serve_locally = True
 # app.script.config.serve_locally = True
